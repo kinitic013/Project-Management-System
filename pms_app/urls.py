@@ -23,7 +23,10 @@ urlpatterns = [
     path('projects/<int:project_id>/tasks/<int:task_id>/get', get_task_by_id, name='get_task_by_id'),
     path('projects/<int:project_id>/tasks/<int:task_id>/update_status', update_task_status, name='update_task_status'),
     path('projects/<int:project_id>/tasks/<int:task_id>/delete', delete_task, name='delete_task'),
+    
     path('projects/<int:project_id>/images/upload', upload_image, name='upload_image'),
     path('projects/<int:project_id>/images/get_all', get_all_images_project, name='get_all_images_project'),
     path('projects/<int:project_id>/images/<int:image_id>/get', get_image_by_id, name='get_images_by_project'),
+    
+    path('user/get_all_activity', get_all_activity_records, name='get_all_activity_records'),
 ]

@@ -1,10 +1,10 @@
-from django.http import JsonResponse
+from django.http import JsonResponse ,HttpResponse
 from rest_framework.response import Response
 from rest_framework.decorators import api_view , permission_classes
 from rest_framework.permissions import IsAuthenticated
-from .serializers import ProjectSerializer ,  TaskSerializer , ImagesSerializer ,UserSerializer
+from .serializers import ProjectSerializer ,  TaskSerializer , ImagesSerializer ,UserSerializer , ActivityLogSerializer
 from django.contrib.auth.models import User
-from .models import Project, Task, Images
+from .models import Project, Task, Images ,ActivityLog
 from datetime import datetime
 from rest_framework import status
 from django.core.paginator import Paginator
@@ -12,19 +12,21 @@ from django.core.files.storage import default_storage
 import os
 from django.conf import settings
 import csv
-from django.http import HttpResponse
+from .utils import log_activity , get_client_ip
+from .constants import ActivityActions , ModelActions
 
 @api_view(['POST'])
 def signup(request):
     email = request.data.get('email')
     password = request.data.get('password')
     username =  request.data.get('username')
+    client_ip = get_client_ip(request)
 
-    print(email,password,username)
     if email and password and username:
         try:
-            User.objects.create_user(username=username, email=email, password=password)
-            return JsonResponse({"message": "Login successful"} , status=status.HTTP_201_CREATED)
+            user = User.objects.create_user(username=username, email=email, password=password)
+            log_activity(user, ActivityActions.CREATE, ModelActions.USER, user.id,client_ip,[])
+            return JsonResponse({"message": "Account Created successfully"} , status=status.HTTP_201_CREATED)
         except Exception as e:
             print(e)
             return JsonResponse({"message": "User already exists"}, status=status.HTTP_400_BAD_REQUEST)
@@ -35,9 +37,11 @@ def signup(request):
 @permission_classes([IsAuthenticated])
 def get_all_projects_by_user(request):
     user = request.user
+    client_ip = get_client_ip(request)
     try : 
         projects = user.projects.all() 
         serializer = ProjectSerializer(projects, many=True)
+        log_activity(user, ActivityActions.GET_ALL, ModelActions.PROJECT , user.id,client_ip,[])
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Exception as e:
         print(e)
@@ -47,14 +51,14 @@ def get_all_projects_by_user(request):
 @permission_classes([IsAuthenticated])
 def get_projects_by_user(request):
     user = request.user
-
+    client_ip = get_client_ip(request)
+    
     name_filter = request.GET.get('name', '')
     start_date_filter = request.GET.get('start_date', '')
     end_date_filter = request.GET.get('end_date', '')
 
     page_number = int(request.GET.get('page', 1))
     page_size = int(request.GET.get('page_size', 5))
-
     projects = user.projects.filter(is_deleted=False)
 
     if name_filter:
@@ -93,6 +97,8 @@ def get_projects_by_user(request):
         "has_previous": page_obj.has_previous(),
     }
     
+    log_activity(user, ActivityActions.GET_ALL_FILTER, ModelActions.PROJECT , user.id,client_ip,[])
+
     return Response({
         "results": serializer.data,
         "pagination": pagination_data
@@ -101,6 +107,8 @@ def get_projects_by_user(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_project(request):
+    client_ip = get_client_ip(request)
+    user = request.user
     name = request.data.get('name')
     description = request.data.get('description')
     start_date_str = request.data.get('start_date') 
@@ -116,7 +124,7 @@ def create_project(request):
     if start_date > end_date:
         return JsonResponse({"message": "Start date must be before end date"}, status=status.HTTP_400_BAD_REQUEST)
 
-    created_by = request.user
+    created_by = user
     if not all([name, description, start_date, end_date]):
         return JsonResponse({"message": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
@@ -127,6 +135,9 @@ def create_project(request):
             end_date=end_date,
             created_by=created_by
         )
+        
+        log_activity(user, ActivityActions.CREATE, ModelActions.PROJECT , user.id,client_ip,[])
+        
         return JsonResponse({"message": "Project created successfully"}, status=status.HTTP_201_CREATED)
     except Exception as e:
         print(e)
@@ -136,38 +147,46 @@ def create_project(request):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_project(request, project_id):
+    client_ip = get_client_ip(request)
+    user = request.user
     try:
-        project = Project.objects.get(id=project_id, created_by=request.user, is_deleted=False)
+        project = Project.objects.get(id=project_id, created_by=user, is_deleted=False)
     except Project.DoesNotExist:
         return Response({"message": "Project not found or unauthorized"}, status=statu.HTTP_404_NOT_FOUND)
     except Exception as e:  
         print(e)
         return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
-
+    updated_field = []
     if 'name' in request.data:
         project.name = request.data['name']
+        updated_field.append('name')
 
     if 'start_date' in request.data:
         try:
             project.start_date = datetime.strptime(request.data['start_date'], "%d-%m-%Y").date()
+            updated_field.append('start_date')
         except ValueError:
             return Response({"message": "Invalid start date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
         
     if 'end_date' in request.data:
         try:
             project.end_date = datetime.strptime(request.data['end_date'], "%d-%m-%Y").date()
+
+            updated_field.append('end_date')
         except ValueError:
             return Response({"message": "Invalid end date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
 
     if project.start_date > project.end_date:
         return Response({"message": "Start date must be before end date"}, status=status.HTTP_400_BAD_REQUEST)
     
+    log_activity(user, ActivityActions.UPDATE, ModelActions.PROJECT , user.id,client_ip,updated_field)
     project.save()
     return Response({"message": "Project updated successfully"}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_project_csv(request,project_id):
+    client_ip = get_client_ip(request)
     user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -207,16 +226,21 @@ def get_project_csv(request,project_id):
     writer.writerow(['Image ID', 'Image Path', 'Project ID'])
     for image in project.images.all():
         writer.writerow([image.id, image.image.url, image.project.id])
-
+        
+    log_activity(user, ActivityActions.GET_CSV, ModelActions.PROJECT , user.id,client_ip,[])
+    
     return response
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def soft_delete(request,project_id):
+    client_ip = get_client_ip(request)
+    user = request.user
     try:
-        project = Project.objects.get(id=project_id, created_by=request.user)
+        project = Project.objects.get(id=project_id, created_by=user)
         project.is_deleted = True
         project.save()
+        log_activity(user, ActivityActions.DELETE, ModelActions.PROJECT , user.id,client_ip,[])
         return Response({"message": "Project soft deleted successfully"}, status=status.HTTP_200_OK)
     except Project.DoesNotExist:
         return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -228,13 +252,14 @@ def soft_delete(request,project_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_task(request , project_id):
+    client_ip = get_client_ip(request)
+    user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     if('name' not in request.data):
         return Response({"message": "Task name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     name = request.data.get('name')
-    user = request.user
     try:
         project = Project.objects.get(id=project_id, created_by=user , is_deleted=False)
     except Project.DoesNotExist:
@@ -250,6 +275,7 @@ def create_task(request , project_id):
     try:
         newTask.save()
         serializer = TaskSerializer(newTask)
+        log_activity(user, ActivityActions.CREATE, ModelActions.TASK , user.id,client_ip,[])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     except Exception as e:
         print(e)
@@ -259,16 +285,19 @@ def create_task(request , project_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_tasks_by_project(request,project_id):
+    client_ip = get_client_ip(request)
+    user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     try: 
         status_filter = request.GET.get('status')
-        project = Project.objects.filter(id=project_id, created_by=request.user)
+        project = Project.objects.filter(id=project_id, created_by=user)
         allTask = project[0].tasks.all()
 
         if status_filter:
             allTask = allTask.filter(status=status_filter)
         serializer = TaskSerializer(allTask, many=True)
+        log_activity(user, ActivityActions.GET, ModelActions.TASK , user.id,client_ip,[])
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Project.DoesNotExist:
         return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -279,15 +308,18 @@ def get_tasks_by_project(request,project_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_task_by_id(req,project_id,task_id):
+def get_task_by_id(request,project_id,task_id):
+    client_ip = get_client_ip(request)
+    user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     if(task_id == None):
         return Response({"message": "Task ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=req.user)
+        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=user)
         serializer = TaskSerializer(task)
+        log_activity(user, ActivityActions.GET, ModelActions.TASK , user.id,client_ip,[])
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Task.DoesNotExist:
         return Response({"message": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -298,6 +330,8 @@ def get_task_by_id(req,project_id,task_id):
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
 def update_task_status(request,project_id,task_id):
+    client_ip = get_client_ip(request)
+    user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     if(task_id == None):
@@ -309,9 +343,10 @@ def update_task_status(request,project_id,task_id):
         return Response({"message": "Invalid status value. Use 'Pending' or 'Completed'"}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=request.user)
+        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=user)
         task.status = new_status
         task.save()
+        log_activity(user, ActivityActions.UPDATE, ModelActions.TASK , user.id,client_ip,['status'])
         return Response({"message": "Task status updated successfully"}, status=status.HTTP_200_OK)
     except Task.DoesNotExist:
         return Response({"message": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -322,14 +357,17 @@ def update_task_status(request,project_id,task_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_task(request,project_id,task_id):
+    client_ip = get_client_ip(request)
+    user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     if(task_id == None):
         return Response({"message": "Task ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=request.user)
+        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=user)
         task.delete()
+        log_activity(user, ActivityActions.DELETE, ModelActions.TASK , user.id,client_ip,[])
         return Response({"message": "Task deleted successfully"}, status=status.HTTP_200_OK)
     except Task.DoesNotExist:
         return Response({"message": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -341,7 +379,7 @@ def delete_task(request,project_id,task_id):
 @permission_classes([IsAuthenticated])
 def upload_image(request,project_id):
     user = request.user
-    
+    client_ip = get_client_ip(request)
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
@@ -362,6 +400,7 @@ def upload_image(request,project_id):
         )
         image.save()    
         serializer = ImagesSerializer(image)
+        log_activity(user, ActivityActions.CREATE, ModelActions.IMAGE , user.id,client_ip,[])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:   
         return Response({"message": "No image file provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -370,6 +409,7 @@ def upload_image(request,project_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_images_project(request,project_id):
+    client_ip = get_client_ip(request)
     user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -377,6 +417,7 @@ def get_all_images_project(request,project_id):
         project = Project.objects.get(id=project_id, created_by=user , is_deleted=False)
         images = project.images.all()
         serializer = ImagesSerializer(images, many=True)
+        log_activity(user, ActivityActions.GET_ALL, ModelActions.IMAGE , user.id,client_ip,[])
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Project.DoesNotExist:
         return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -387,6 +428,7 @@ def get_all_images_project(request,project_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_image_by_id(request,project_id,image_id):
+    client_ip = get_client_ip(request)
     user = request.user
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -394,9 +436,19 @@ def get_image_by_id(request,project_id,image_id):
         project = Project.objects.get(id=project_id, created_by=user , is_deleted=False)
         image = Images.objects.get(id=image_id, project=project)
         serializer = ImagesSerializer(image)
+        log_activity(user, ActivityActions.GET, ModelActions.IMAGE , user.id,client_ip,[])
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Project.DoesNotExist:
         return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         print(e)
         return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_activity_records(request):
+    client_ip = get_client_ip(request)
+    user = request.user
+    activity_logs = ActivityLog.objects.all()
+    serializer = ActivityLogSerializer(activity_logs, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)

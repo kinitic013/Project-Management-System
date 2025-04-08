@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Project, Task, Images
+from .models import Project, Task, Images, ActivityLog
 from django.contrib.auth.models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,4 +30,10 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
+        fields = '__all__'
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    class Meta:
+        model = ActivityLog
         fields = '__all__'
