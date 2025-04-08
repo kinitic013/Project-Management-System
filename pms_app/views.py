@@ -8,7 +8,9 @@ from .models import Project, Task, Images
 from datetime import datetime
 from rest_framework import status
 from django.core.paginator import Paginator
-
+from django.core.files.storage import default_storage
+import os
+from django.conf import settings
 
 @api_view(['POST'])
 def signup(request):
@@ -177,7 +179,6 @@ def soft_delete(request,project_id):
         return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_task(request , project_id):
@@ -286,6 +287,70 @@ def delete_task(request,project_id,task_id):
         return Response({"message": "Task deleted successfully"}, status=status.HTTP_200_OK)
     except Task.DoesNotExist:
         return Response({"message": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_image(request,project_id):
+    user = request.user
+    
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        project = Project.objects.get(id=project_id, created_by=user , is_deleted=False)
+    except Project.DoesNotExist:
+        return Response({"message": "Project not found or access denied"}, status=status.HTTP_404_NOT_FOUND)
+    
+    if 'image' in request.FILES:
+        image_file = request.FILES['image']
+        filename = default_storage.get_available_name(image_file.name)
+        file_path = os.path.join(settings.MEDIA_ROOT, 'uploads', filename)
+        with default_storage.open(file_path, 'wb+') as destination:
+            for chunk in image_file.chunks():
+                destination.write(chunk)
+        image = Images.objects.create(
+            project=project,
+            image=image_file
+        )
+        image.save()    
+        serializer = ImagesSerializer(image)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    else:   
+        return Response({"message": "No image file provided"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_images_project(request,project_id):
+    user = request.user
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        project = Project.objects.get(id=project_id, created_by=user)
+        images = project.images.all()
+        serializer = ImagesSerializer(images, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Project.DoesNotExist:
+        return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_image_by_id(request,project_id,image_id):
+    user = request.user
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        project = Project.objects.get(id=project_id, created_by=user)
+        image = Images.objects.get(id=image_id, project=project)
+        serializer = ImagesSerializer(image)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Project.DoesNotExist:
+        return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         print(e)
         return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
