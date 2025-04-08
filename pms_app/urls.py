@@ -11,9 +11,10 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     path('signup/', signup, name='signup'),
+    path('projects/create', create_project, name='create_project'),
     path('projects/get_filter', get_projects_by_user, name='get_projects_by_user'),
     path('projects/get', get_all_projects_by_user, name='get_all_projects_by_user'),
-    path('projects/create', create_project, name='create_project'),
+    path('projects/<int:project_id>/get_csv', get_project_csv, name='get_project_csv'),
     path('projects/<int:project_id>/update', update_project, name='update_project'),
     path('projects/<int:project_id>/soft_delete', soft_delete, name='soft_delete'),
 

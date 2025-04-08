@@ -11,6 +11,8 @@ from django.core.paginator import Paginator
 from django.core.files.storage import default_storage
 import os
 from django.conf import settings
+import csv
+from django.http import HttpResponse
 
 @api_view(['POST'])
 def signup(request):
@@ -163,6 +165,50 @@ def update_project(request, project_id):
     project.save()
     return Response({"message": "Project updated successfully"}, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_project_csv(request,project_id):
+    user = request.user
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        project = Project.objects.get(id=project_id, created_by=user , is_deleted = False)
+    except Project.DoesNotExist:   
+        return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    response = HttpResponse(
+        content_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="somefilename.csv"'},
+    )
+    writer = csv.writer(response)
+    writer.writerow(['Project ID', 'Name', 'Description', 'Start Date', 'End Date', 'Duration', 'Is Deleted', 'Created By'])
+    writer.writerow([
+        project.id,
+        project.name,
+        project.description,
+        project.start_date,
+        project.end_date,
+        project.duration,
+        project.is_deleted,
+        project.created_by.id
+    ])
+
+    writer.writerow([]) 
+    writer.writerow(['Tasks'])
+    writer.writerow(['Task ID', 'Task Name', 'Status', 'Project ID'])
+    for task in project.tasks.all():
+        writer.writerow([task.id, task.name, task.status, task.project.id])
+
+    writer.writerow([]) 
+    writer.writerow(['Images'])
+    writer.writerow(['Image ID', 'Image Path', 'Project ID'])
+    for image in project.images.all():
+        writer.writerow([image.id, image.image.url, image.project.id])
+
+    return response
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -190,7 +236,7 @@ def create_task(request , project_id):
     name = request.data.get('name')
     user = request.user
     try:
-        project = Project.objects.get(id=project_id, created_by=user)
+        project = Project.objects.get(id=project_id, created_by=user , is_deleted=False)
     except Project.DoesNotExist:
         return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
@@ -328,7 +374,7 @@ def get_all_images_project(request,project_id):
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        project = Project.objects.get(id=project_id, created_by=user)
+        project = Project.objects.get(id=project_id, created_by=user , is_deleted=False)
         images = project.images.all()
         serializer = ImagesSerializer(images, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -345,7 +391,7 @@ def get_image_by_id(request,project_id,image_id):
     if(project_id == None):
         return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        project = Project.objects.get(id=project_id, created_by=user)
+        project = Project.objects.get(id=project_id, created_by=user , is_deleted=False)
         image = Images.objects.get(id=image_id, project=project)
         serializer = ImagesSerializer(image)
         return Response(serializer.data, status=status.HTTP_200_OK)
