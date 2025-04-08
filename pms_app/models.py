@@ -8,6 +8,7 @@ class Project(models.Model):
     end_date = models.DateField()
     duration = models.IntegerField(blank=True, null=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='projects',null =True)
+    is_deleted = models.BooleanField(default=False , null=True)
 
     def save(self, *args, **kwargs):
         if self.start_date and self.end_date:
