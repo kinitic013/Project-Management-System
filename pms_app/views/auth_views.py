@@ -2,10 +2,7 @@ import os
 import csv
 from datetime import datetime
 
-from django.http import JsonResponse, HttpResponse
-from django.conf import settings
-from django.core.paginator import Paginator
-from django.core.files.storage import default_storage
+from django.http import JsonResponse
 from django.contrib.auth.models import User
 
 from rest_framework import status
@@ -19,25 +16,30 @@ from ..serializers import (
     TaskSerializer,
     ImagesSerializer,
     UserSerializer,
-    ActivityLogSerializer
+    ActivityLogSerializer,
+    SignupSerializer
 )
 from ..utils import log_activity, get_client_ip
 from ..constants import ActivityActions, ModelActions
 
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
+@swagger_auto_schema(method='post', request_body=SignupSerializer)
 @api_view(['POST'])
 def signup(request):
-    email = request.data.get('email')
-    password = request.data.get('password')
-    username =  request.data.get('username')
-    client_ip = get_client_ip(request)
-
-    if email and password and username:
+    serializer = SignupSerializer(data=request.data)
+    if(serializer.is_valid()):
+        username = serializer.validated_data['username']
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
         try:
             user = User.objects.create_user(username=username, email=email, password=password)
-            log_activity(user, ActivityActions.CREATE, ModelActions.USER, user.id,client_ip,[])
-            return JsonResponse({"message": "Account Created successfully"} , status=status.HTTP_201_CREATED)
+            client_ip = get_client_ip(request)
+            log_activity(user, ActivityActions.CREATE, ModelActions.USER, user.id, client_ip, [])
+            return JsonResponse({"message": "Account created successfully"}, status=status.HTTP_201_CREATED)
         except Exception as e:
             print(e)
-            return JsonResponse({"message": "User already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"message": "Something went wrong"}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        return JsonResponse({"message": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

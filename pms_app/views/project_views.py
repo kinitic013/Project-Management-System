@@ -24,23 +24,86 @@ from ..serializers import (
 from ..utils import log_activity, get_client_ip
 from ..constants import ActivityActions, ModelActions
 
-@api_view(['POST'])
-def signup(request):
-    email = request.data.get('email')
-    password = request.data.get('password')
-    username =  request.data.get('username')
-    client_ip = get_client_ip(request)
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
-    if email and password and username:
-        try:
-            user = User.objects.create_user(username=username, email=email, password=password)
-            log_activity(user, ActivityActions.CREATE, ModelActions.USER, user.id,client_ip,[])
-            return JsonResponse({"message": "Account Created successfully"} , status=status.HTTP_201_CREATED)
-        except Exception as e:
-            print(e)
-            return JsonResponse({"message": "User already exists"}, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        return JsonResponse({"message": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+project_create_request = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    required=['name', 'description', 'start_date', 'end_date'],
+    properties={
+        'name': openapi.Schema(type=openapi.TYPE_STRING, description='Project name'),
+        'description': openapi.Schema(type=openapi.TYPE_STRING, description='Project description'),
+        'start_date': openapi.Schema(type=openapi.TYPE_STRING, description='Start date (DD-MM-YYYY)'),
+        'end_date': openapi.Schema(type=openapi.TYPE_STRING, description='End date (DD-MM-YYYY)'),
+    }
+)
+
+error_response = openapi.Response(
+    description="Error response",
+    schema=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'message': openapi.Schema(type=openapi.TYPE_STRING, description='Error message')
+        }
+    )
+)
+
+@swagger_auto_schema(
+    method='post',
+    request_body=project_create_request,
+    responses={
+        201: openapi.Response(
+            description="Project created successfully",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message')
+                }
+            )
+        ),
+        400: error_response
+    },
+    operation_description="Create a new project"
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_project(request):
+    client_ip = get_client_ip(request)
+    user = request.user
+    name = request.data.get('name')
+    description = request.data.get('description')
+    start_date_str = request.data.get('start_date') 
+    end_date_str = request.data.get('end_date')
+    try : 
+        start_date = datetime.strptime(start_date_str, "%d-%m-%Y").date()
+    except  ValueError:
+        return JsonResponse({"message": "Invalid start date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
+    try :   
+        end_date = datetime.strptime(end_date_str, "%d-%m-%Y").date()
+    except ValueError:  
+        return JsonResponse({"message": "Invalid end date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
+    if start_date > end_date:
+        return JsonResponse({"message": "Start date must be before end date"}, status=status.HTTP_400_BAD_REQUEST)
+
+    created_by = user
+    if not all([name, description, start_date, end_date]):
+        return JsonResponse({"message": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        project = Project.objects.create(
+            name=name,
+            description=description,
+            start_date=start_date,
+            end_date=end_date,
+            created_by=created_by
+        )
+        
+        log_activity(user, ActivityActions.CREATE, ModelActions.PROJECT , user.id,client_ip,[])
+        
+        return JsonResponse({"message": "Project created successfully"}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        print(e)
+        return JsonResponse({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+    
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -113,44 +176,6 @@ def get_projects_by_user(request):
         "pagination": pagination_data
     }, status=status.HTTP_200_OK)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_project(request):
-    client_ip = get_client_ip(request)
-    user = request.user
-    name = request.data.get('name')
-    description = request.data.get('description')
-    start_date_str = request.data.get('start_date') 
-    end_date_str = request.data.get('end_date')
-    try : 
-        start_date = datetime.strptime(start_date_str, "%d-%m-%Y").date()
-    except  ValueError:
-        return JsonResponse({"message": "Invalid start date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
-    try :   
-        end_date = datetime.strptime(end_date_str, "%d-%m-%Y").date()
-    except ValueError:  
-        return JsonResponse({"message": "Invalid end date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
-    if start_date > end_date:
-        return JsonResponse({"message": "Start date must be before end date"}, status=status.HTTP_400_BAD_REQUEST)
-
-    created_by = user
-    if not all([name, description, start_date, end_date]):
-        return JsonResponse({"message": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        project = Project.objects.create(
-            name=name,
-            description=description,
-            start_date=start_date,
-            end_date=end_date,
-            created_by=created_by
-        )
-        
-        log_activity(user, ActivityActions.CREATE, ModelActions.PROJECT , user.id,client_ip,[])
-        
-        return JsonResponse({"message": "Project created successfully"}, status=status.HTTP_201_CREATED)
-    except Exception as e:
-        print(e)
-        return JsonResponse({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
 
     
 @api_view(['PATCH'])

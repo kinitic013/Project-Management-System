@@ -24,6 +24,9 @@ from ..serializers import (
 from ..utils import log_activity, get_client_ip
 from ..constants import ActivityActions, ModelActions
 
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -55,7 +58,11 @@ def upload_image(request,project_id):
     else:   
         return Response({"message": "No image file provided"}, status=status.HTTP_400_BAD_REQUEST)
     
-    
+
+@swagger_auto_schema(
+    method='get',
+    responses={200: ImagesSerializer(many=True)}
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_images_project(request,project_id):
@@ -75,6 +82,11 @@ def get_all_images_project(request,project_id):
         print(e)
         return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
     
+    
+@swagger_auto_schema(
+    method='get',
+    responses={200: ImagesSerializer()}
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_image_by_id(request,project_id,image_id):

@@ -142,3 +142,14 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Enter token with **Bearer** prefix, e.g., "Bearer your_token"',
+        }
+    },
+    'USE_SESSION_AUTH': False,  # Optional: hides the default Django login/logout buttons
+}
