@@ -1,0 +1,554 @@
+{
+	"info": {
+		"_postman_id": "b7efe28b-5297-4cf9-a1ea-480cf2857e67",
+		"name": "DataXai",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "26503391"
+	},
+	"item": [
+		{
+			"name": "Project",
+			"item": [
+				{
+					"name": "Get All Project",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/projects/get"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Project",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\" : \"project 2\",\n    \"description\" : \"test-project-2\",\n    \"start_date\" : \"13-08-1999\",\n    \"end_date\" : \"12-02-2025\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://127.0.0.1:8000/api/projects/create"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Filter Projects",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://127.0.0.1:8000/api/projects/get_filter?start_date=01-04-2000&end_date=30-04-2025&page=1&page_size=10",
+							"protocol": "http",
+							"host": [
+								"127",
+								"0",
+								"0",
+								"1"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"projects",
+								"get_filter"
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "01-04-2000"
+								},
+								{
+									"key": "end_date",
+									"value": "30-04-2025"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Project",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\" : \"changed project name from 1 to 10\",\n    \"start_date\": \"11-01-2000\",\n    \"end_date\": \"11-01-2010\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://127.0.0.1:8000/api/projects/11/update",
+							"protocol": "http",
+							"host": [
+								"127",
+								"0",
+								"0",
+								"1"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"projects",
+								"11",
+								"update"
+							],
+							"query": [
+								{
+									"key": "project_id",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Soft Delete",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/projects/12/soft_delete"
+					},
+					"response": []
+				},
+				{
+					"name": "Get CSV",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var template = `",
+									"<canvas id=\"myChart\" height=\"75\"></canvas>",
+									"",
+									"<script src=\"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js\"></script> ",
+									"",
+									"<script>",
+									"    var ctx = document.getElementById(\"myChart\");",
+									"",
+									"    var myChart = new Chart(ctx, {",
+									"        type: \"line\",",
+									"        data: {",
+									"            labels: [\"Start Date\", \"End Date\", \"Duration\"],",
+									"            datasets: [{",
+									"                label: \"Project Duration\",",
+									"                data: [],",
+									"                fill: false,",
+									"                borderColor: \"#4bc0c0\"",
+									"            }]",
+									"        },",
+									"        options: {",
+									"            title: {",
+									"                display: true,",
+									"                text: 'Project Duration'",
+									"            },",
+									"            scales: {",
+									"                xAxes: [{",
+									"                    display: true,",
+									"                    scaleLabel: {",
+									"                        display: true,",
+									"                        labelString: 'Date'",
+									"                    }",
+									"                }],",
+									"                yAxes: [{",
+									"                    display: true,",
+									"                    scaleLabel: {",
+									"                        display: true,",
+									"                        labelString: 'Days'",
+									"                    }",
+									"                }]",
+									"            }",
+									"        }",
+									"",
+									"    });",
+									"",
+									"    // Access the data passed to pm.visualizer.set() from the JavaScript",
+									"    // code of the Visualizer template",
+									"    pm.getData(function (err, value) {",
+									"        var projectData = value.response;",
+									"        var startDate = new Date(projectData[\"Start Date\"]);",
+									"        var endDate = new Date(projectData[\"End Date\"]);",
+									"        var duration = projectData.Duration;",
+									"",
+									"        myChart.data.datasets[0].data = [startDate, endDate, duration];",
+									"        myChart.update();",
+									"    });",
+									"",
+									"</script>`;",
+									"",
+									"function constructVisualizerPayload() {",
+									"    var res = pm.response.text().split('\\n');",
+									"    var projectData = res[1].split(',');",
+									"    var visualizerData = {",
+									"        \"Start Date\": projectData[3],",
+									"        \"End Date\": projectData[4],",
+									"        \"Duration\": parseInt(projectData[5])",
+									"    };",
+									"",
+									"    return {response: visualizerData};",
+									"}",
+									"",
+									"pm.visualizer.set(template, constructVisualizerPayload());"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/projects/11/get_csv"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "SignUp User",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\" : \"kinitic014\",\n    \"email\" : \"abcd@gmail.com\",\n    \"password\" : \"123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://127.0.0.1:8000/api/signup/"
+					},
+					"response": []
+				},
+				{
+					"name": "login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"{",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('token', response.access);",
+									"    pm.environment.set('refresh_token', response.refresh);",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\" : \"kinitic013\",\n    \"password\" : \"123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://127.0.0.1:8000/api/login/"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Task",
+			"item": [
+				{
+					"name": "Create Task",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\" : \"project Team 1231 \"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://127.0.0.1:8000/api/projects/11/tasks/create"
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Task of project",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://127.0.0.1:8000/api/projects/11/tasks/get_all?status=Pending",
+							"protocol": "http",
+							"host": [
+								"127",
+								"0",
+								"0",
+								"1"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"projects",
+								"11",
+								"tasks",
+								"get_all"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "Pending"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\" : \"Completed\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://127.0.0.1:8000/api/projects/2/tasks/10/update_status"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Task",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/projects/11/tasks/11/delete"
+					},
+					"response": []
+				},
+				{
+					"name": "Get task Details by Task Id",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/projects/11/tasks/12/get"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Image",
+			"item": [
+				{
+					"name": "Upload Image",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": "/home/kinitic013/Pictures/Screenshots/Screenshot From 2025-04-08 00-42-30.png"
+								}
+							]
+						},
+						"url": "http://127.0.0.1:8000/api/projects/11/images/upload"
+					},
+					"response": []
+				},
+				{
+					"name": "get all images",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/projects/11/images/get_all"
+					},
+					"response": []
+				},
+				{
+					"name": "get image",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/projects/11/images/3/get"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Activity Record",
+			"item": [
+				{
+					"name": "Get user activity",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": {
+								"token": "{{token}}"
+							}
+						},
+						"method": "GET",
+						"header": [],
+						"url": "http://127.0.0.1:8000/api/user/get_all_activity"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
