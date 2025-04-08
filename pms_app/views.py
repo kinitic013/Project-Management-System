@@ -1,4 +1,3 @@
-
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.decorators import api_view , permission_classes
@@ -39,7 +38,6 @@ def get_all_projects_by_user(request):
     except Exception as e:
         print(e)
         return JsonResponse({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -131,4 +129,52 @@ def create_project(request):
         return JsonResponse({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
 
     
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_project(request, project_id):
+    try:
+        project = Project.objects.get(id=project_id, created_by=request.user, is_deleted=False)
+    except Project.DoesNotExist:
+        return Response({"message": "Project not found or unauthorized"}, status=statu.HTTP_404_NOT_FOUND)
+    except Exception as e:  
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if 'name' in request.data:
+        project.name = request.data['name']
+
+    if 'start_date' in request.data:
+        try:
+            project.start_date = datetime.strptime(request.data['start_date'], "%d-%m-%Y").date()
+        except ValueError:
+            return Response({"message": "Invalid start date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if 'end_date' in request.data:
+        try:
+            project.end_date = datetime.strptime(request.data['end_date'], "%d-%m-%Y").date()
+        except ValueError:
+            return Response({"message": "Invalid end date format. Use DD-MM-YYYY"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if project.start_date > project.end_date:
+        return Response({"message": "Start date must be before end date"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    project.save()
+    return Response({"message": "Project updated successfully"}, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def soft_delete(request,project_id):
+    try:
+        project = Project.objects.get(id=project_id, created_by=request.user)
+        project.is_deleted = True
+        project.save()
+        return Response({"message": "Project soft deleted successfully"}, status=status.HTTP_200_OK)
+    except Project.DoesNotExist:
+        return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+
+
 
