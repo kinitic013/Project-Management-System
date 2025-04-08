@@ -178,3 +178,114 @@ def soft_delete(request,project_id):
 
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_task(request , project_id):
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if('name' not in request.data):
+        return Response({"message": "Task name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    name = request.data.get('name')
+    user = request.user
+    try:
+        project = Project.objects.get(id=project_id, created_by=user)
+    except Project.DoesNotExist:
+        return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+
+    newTask = Task.objects.create(
+        project=project,
+        name=name,
+    )
+    try:
+        newTask.save()
+        serializer = TaskSerializer(newTask)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_tasks_by_project(request,project_id):
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try: 
+        status_filter = request.GET.get('status')
+        project = Project.objects.filter(id=project_id, created_by=request.user)
+        allTask = project[0].tasks.all()
+
+        if status_filter:
+            allTask = allTask.filter(status=status_filter)
+        serializer = TaskSerializer(allTask, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Project.DoesNotExist:
+        return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_task_by_id(req,project_id,task_id):
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if(task_id == None):
+        return Response({"message": "Task ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=req.user)
+        serializer = TaskSerializer(task)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Task.DoesNotExist:
+        return Response({"message": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_task_status(request,project_id,task_id):
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if(task_id == None):
+        return Response({"message": "Task ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if('status' not in request.data):
+        return Response({"message": "Task status is required"}, status=status.HTTP_400_BAD_REQUEST)
+    new_status = request.data.get('status')
+    if(new_status not in ['Pending', 'Completed']):
+        return Response({"message": "Invalid status value. Use 'Pending' or 'Completed'"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=request.user)
+        task.status = new_status
+        task.save()
+        return Response({"message": "Task status updated successfully"}, status=status.HTTP_200_OK)
+    except Task.DoesNotExist:
+        return Response({"message": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_task(request,project_id,task_id):
+    if(project_id == None):
+        return Response({"message": "Project ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if(task_id == None):
+        return Response({"message": "Task ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        task = Task.objects.get(id=task_id, project__id=project_id, project__created_by=request.user)
+        task.delete()
+        return Response({"message": "Task deleted successfully"}, status=status.HTTP_200_OK)
+    except Task.DoesNotExist:
+        return Response({"message": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print(e)
+        return Response({"message": "Error occurred"}, status=status.HTTP_400_BAD_REQUEST)
